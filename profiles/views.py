@@ -1,10 +1,13 @@
 from django.contrib.auth.models import User
-from django.views.generic import DetailView, View
+from django.views.generic import DetailView, View, FormView
 
 from feed.models import Post
 from followers.models import Follower
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import JsonResponse, HttpResponseBadRequest
+
+from .forms import ProfileUpdateForm
+from profiles.models import Profile
 
 # Create your views here.
 class ProfileDetailView(DetailView):
@@ -68,3 +71,31 @@ class FollowView(LoginRequiredMixin,View):
             'success':True,
             'wording': 'Unfollow' if data['action'] == 'follow' else 'Follow'
         })
+    
+class SettingsView(FormView):
+    template_name = 'profiles/settings.html'
+    form_class = ProfileUpdateForm
+    success_url = '/'
+
+    def form_valid(self, form):
+        #Update a profile information
+        profile = self.request.user.profile
+        
+        if form.cleaned_data['username']:
+            profile.user.username = form.cleaned_data['username']
+
+        if form.cleaned_data['image']:
+            profile.image = form.cleaned_data['image']
+
+        profile.user.save() 
+        profile.save()
+        
+
+        return super().form_valid(form)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+        context['total_posts'] = Post.objects.filter(author=user).count()
+        context['total_followers'] = Follower.objects.filter(following=user).count()
+        return context
